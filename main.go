@@ -13,7 +13,9 @@ const (
 
 func main() {
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir(rootDir)))
+
+	mux.Handle("/app/", http.StripPrefix("/app/", http.FileServer(http.Dir(rootDir))))
+	mux.HandleFunc("/healthz", handleReadiness)
 
 	addr := fmt.Sprintf(":%d", port)
 
@@ -26,4 +28,10 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalln(err)
 	}
+}
+
+func handleReadiness(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("content-type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
