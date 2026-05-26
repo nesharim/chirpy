@@ -15,14 +15,29 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries      *database.Queries
+	platform       string
 }
 
 func main() {
-	godotenv.Load()
 	const filepathRoot = "."
 	const port = "8080"
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Failed to load env file: %v", err)
+		return
+	}
 
 	dbURL := os.Getenv("DB_URL")
+	if len(dbURL) == 0 {
+		log.Println("DB_URL value needs to be set in env")
+		return
+	}
+
+	platform := os.Getenv("PLATFORM")
+	if len(platform) == 0 {
+		log.Println("PLATFORM value need to be set in env")
+		return
+	}
+
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Printf("Failed to open sql connection: %v", err)
@@ -34,6 +49,7 @@ func main() {
 	apiConfig := apiConfig{
 		fileserverHits: atomic.Int32{},
 		dbQueries:      dbQueries,
+		platform:       platform,
 	}
 
 	mux := http.NewServeMux()
@@ -46,6 +62,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	mux.HandleFunc("POST /api/users", apiConfig.handlerCreateUser)
 
 	server := &http.Server{
 		Addr:    ":" + port,
