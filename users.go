@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nesharim/chirpy/internal/auth"
+	"github.com/nesharim/chirpy/internal/database"
 )
 
 type User struct {
@@ -16,19 +18,27 @@ type User struct {
 }
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, req *http.Request) {
-	type userEmail struct {
-		Email string `json:"email"`
+	type parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
-	usrEml := userEmail{}
+	params := parameters{}
 	decoder := json.NewDecoder(req.Body)
-
-	if err := decoder.Decode(&usrEml); err != nil {
+	if err := decoder.Decode(&params); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to decode req body for user email", err)
 		return
 	}
 
-	newUser, err := cfg.dbQueries.CreateUser(req.Context(), usrEml.Email)
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Hashing failed", err)
+	}
+
+	newUser, err := cfg.dbQueries.CreateUser(req.Context(), database.CreateUserParams{
+		Email:          params.Email,
+		HashedPassword: hashedPassword,
+	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to create new user", err)
 		return
