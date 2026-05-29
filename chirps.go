@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nesharim/chirpy/internal/auth"
 	"github.com/nesharim/chirpy/internal/database"
 )
 
@@ -18,13 +19,23 @@ type chirp struct {
 }
 
 func (cfg *apiConfig) handlerCreateChirps(w http.ResponseWriter, req *http.Request) {
-	type userPayload struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+	type parameters struct {
+		Body string `json:"body"`
 	}
 
-	payload := userPayload{}
+	jwtToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Could not find JWT", err)
+		return
+	}
 
+	userID, err := auth.ValidateJWT(jwtToken, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Could not validate JWT", err)
+		return
+	}
+
+	payload := parameters{}
 	decoder := json.NewDecoder(req.Body)
 	if err := decoder.Decode(&payload); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to decode chirp", err)
@@ -40,7 +51,7 @@ func (cfg *apiConfig) handlerCreateChirps(w http.ResponseWriter, req *http.Reque
 
 	newChirp, err := cfg.dbQueries.CreateChirp(req.Context(), database.CreateChirpParams{
 		Body:   cleanedChirp,
-		UserID: payload.UserID,
+		UserID: userID,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to insert chirp in table", err)
@@ -52,7 +63,7 @@ func (cfg *apiConfig) handlerCreateChirps(w http.ResponseWriter, req *http.Reque
 		CreatedAt: newChirp.CreatedAt,
 		UpdatedAt: newChirp.UpdatedAt,
 		Body:      newChirp.Body,
-		UserID:    newChirp.UserID,
+		UserID:    userID,
 	})
 }
 

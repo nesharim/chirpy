@@ -16,6 +16,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries      *database.Queries
 	platform       string
+	secret         string
 }
 
 func main() {
@@ -23,6 +24,12 @@ func main() {
 	const port = "8080"
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Failed to load env file: %v", err)
+		return
+	}
+
+	secret := os.Getenv("SECRET")
+	if len(secret) == 0 {
+		log.Println("SECRET value needs to be set in env")
 		return
 	}
 
@@ -50,6 +57,7 @@ func main() {
 		fileserverHits: atomic.Int32{},
 		dbQueries:      dbQueries,
 		platform:       platform,
+		secret:         secret,
 	}
 
 	mux := http.NewServeMux()
